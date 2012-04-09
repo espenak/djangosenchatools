@@ -50,9 +50,7 @@ def get_extjs_apps():
 def setup_logging(verbosity):
     if verbosity < 1:
         loglevel = logging.ERROR
-    elif verbosity == 1:
-        loglevel = logging.WARNING
-    elif verbosity == 2:
+    elif verbosity < 2:
         loglevel = logging.INFO
     else:
         loglevel = logging.DEBUG
@@ -219,6 +217,7 @@ class Command(BaseCommand):
             else:
                 outdir = abspath(outdir)
                 self._buildApp(outdir, url)
+                log.info('Successfully built {url}. Results are in: {outdir}'.format(**vars()))
         else:
             raise CommandError('One of --listall, --buildall or --url and --outdir is required.')
 
@@ -229,11 +228,14 @@ class Command(BaseCommand):
             yield outdir, appname, url
 
     def _buildAllApps(self):
-        for outdir, url, appname in self._iterAllApps():
+        for outdir, appname, url in self._iterAllApps():
+            log.info('Building {appname} ({url}).'.format(**vars()))
             self._buildApp(outdir, url)
+            log.info('Successfully built {appname} ({url}). Results are in: {outdir}'.format(**vars()))
 
     def _listAllApps(self):
-        for outdir, url, appname in self._iterAllApps():
+        for outdir, appname, url in self._iterAllApps():
+            print
             print '{appname}:'.format(appname=appname)
             print '    outdir:', outdir
             print '    url:', url
