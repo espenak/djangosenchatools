@@ -1,6 +1,6 @@
 import logging
-from os.path import join, dirname, isdir, relpath, abspath, sep
-from os import getcwd, remove
+from os.path import join, dirname, isdir, relpath, abspath, sep, exists
+from os import remove
 from subprocess import call
 from tempfile import mkdtemp
 from shutil import rmtree
@@ -10,19 +10,42 @@ from optparse import make_option
 from django.core.management.base import BaseCommand, CommandError
 from django.core import management
 from django.conf import settings
+from django.utils.importlib import import_module
 
 log = logging.getLogger('senchatoolsbuild')
 
 
+def get_installed_apps():
+    """
+    Get all installed apps except for those in the ``django`` package.
 
-#def get_js_apps():
-    #apps = []
-    #for moddir, mod, appname in get_installed_apps():
-        #outdir = join(moddir, 'static', appname)
-        #appdir = join(outdir, 'app')
-        #if isdir(appdir):
-            #apps.append((outdir, appname))
-    #return apps
+    :return: List of installed apps as a list of ``(appdir, module, appname)``.
+    """
+    installed_apps = []
+    checked = set()
+    for app in settings.INSTALLED_APPS:
+        if not app.startswith('django.') and not app in checked:
+            mod = import_module(app)
+            checked.add(app)
+            if exists(mod.__file__) and isdir(dirname(mod.__file__)):
+                appdir = dirname(mod.__file__)
+                installed_apps.append((appdir, mod, mod.__name__.split('.')[-1]))
+    return installed_apps
+
+def get_extjs_apps():
+    """
+    Get all extjs apps in INSTALLED_APPS. Any django app with a
+    ``<appdir>/static/<appname>/app`` directory is considered an ExtJS app.
+    """
+    apps = []
+    for moddir, mod, appname in get_installed_apps():
+        outdir = join(moddir, 'static', appname)
+        appdir = join(outdir, 'app')
+        if isdir(appdir):
+            apps.append((outdir, appname))
+            log.debug('Found ExtJS app: %s', appname)
+        log.debug('%s is not an ExtJS app (%s does not exist).', appname, appdir)
+    return apps
 
 def setup_logging(verbosity):
     if verbosity < 1:
@@ -146,6 +169,24 @@ class Command(BaseCommand):
         make_option('--outdir',
             dest='outdir',
             help="Filesystem path to the output directory."),
+        make_option('--buildall',
+            action='store_true',
+            default=False,
+            dest='buildall',
+            help=('Automatically find and build apps. Any django app with a '
+                  '``<appdir>/static/<appname>/app`` directory is considered an ExtJS '
+                  'app, and expected to be available at '
+                  '``http://localhost:8000/<appname>/``. The outdir for each app is '
+                  '``<appdir>/static/<appname>/``')),
+        make_option('--listall',
+            action='store_true',
+            default=False,
+            dest='listall',
+            help='List information about the apps that will be built by --buildall.'),
+        make_option('--urlpattern',
+            dest='urlpattern',
+            default='http://localhost:8000/{appname}/',
+            help="URL pattern used to create urls for apps when using --buildall. Defaults to 'http://localhost:8000/{appname}/'."),
         make_option('--nocompress',
             action='store_true',
             dest='nocompressjs',
@@ -153,22 +194,49 @@ class Command(BaseCommand):
             help='Forwarded to "sencha build". See "sencha help build".'),
         )
 
-
     def handle(self, *args, **options):
         self.nocompressjs = options['nocompressjs']
-
-        setup_logging(get_verbosity(options))
-        if options['collectstatic']:
-            log.info('Running "collectstatic"')
-            management.call_command('collectstatic', verbosity=1, interactive=False)
-        else:
-            log.info('Skipping "collectstatic"')
-
-        #for appinfo in get_js_apps():
-            #self._buildApp(*appinfo)
+        self.urlpattern = options['urlpattern']
         url = options['url']
-        outdir = abspath(options['outdir'])
-        self._buildApp(outdir, url)
+        outdir = options['outdir']
+        buildall = options['buildall']
+        listall = options['listall']
+        setup_logging(get_verbosity(options))
+        build_single = (url and outdir)
+
+        if listall:
+            self._listAllApps()
+            return
+        if build_single or buildall:
+            if options['collectstatic']:
+                log.info('Running "collectstatic"')
+                management.call_command('collectstatic', verbosity=1, interactive=False)
+            else:
+                log.info('Skipping "collectstatic"')
+
+            if buildall:
+                self._buildAllApps()
+            else:
+                outdir = abspath(outdir)
+                self._buildApp(outdir, url)
+        else:
+            raise CommandError('One of --listall, --buildall or --url and --outdir is required.')
+
+
+    def _iterAllApps(self):
+        for outdir, appname in get_extjs_apps():
+            url = self.urlpattern.format(appname=appname)
+            yield outdir, appname, url
+
+    def _buildAllApps(self):
+        for outdir, url, appname in self._iterAllApps():
+            self._buildApp(outdir, url)
+
+    def _listAllApps(self):
+        for outdir, url, appname in self._iterAllApps():
+            print '{appname}:'.format(appname=appname)
+            print '    outdir:', outdir
+            print '    url:', url
 
     def _buildApp(self, outdir, url):
         SenchaToolsWrapper(outdir, url).configureAndBuild(self.nocompressjs)
