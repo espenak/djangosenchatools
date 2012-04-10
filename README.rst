@@ -64,6 +64,15 @@ To build all detected apps, run::
     python manage.py senchatoolsbuild --buildall
 
 
+Build one app by name
+---------------------
+
+You can build a single app in ``INSTALLED_APPS`` using the same method of
+detecting outdir and url as ``--buildall`` using ``--app``::
+
+    python manage.py senchatoolsbuild --app minimal_extjs4_app
+
+
 Integration with django_extjs4
 ==============================
 
