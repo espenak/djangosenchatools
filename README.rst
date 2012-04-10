@@ -64,6 +64,15 @@ To build all detected apps, run::
     python manage.py senchatoolsbuild --buildall
 
 
+Integration with django_extjs4
+==============================
+
+This app is made to work with `django_extjs4`_, however they are losely
+coupled. The only place where you are likely to notice that they work together
+is that ``senchatoolsbuild`` checks that ``settings.EXTJS4_DEBUG==True``. You
+can disable this check using ``--no-check-settings``.
+
+
 .. _Django: http://www.sencha.com/products/sdk-tools
 .. _`Sencha SDK Tools`: http://www.sencha.com/products/sdk-tools
 .. _`django_extjs4`: https://github.com/espenak/django_extjs4

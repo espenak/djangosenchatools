@@ -181,6 +181,11 @@ class Command(BaseCommand):
             default=False,
             dest='listall',
             help='List information about the apps that will be built by --buildall.'),
+        make_option('--no-check-settings',
+            action='store_false',
+            default=True,
+            dest='check_settings',
+            help='Do not abort if settings.EXTJS4_DEBUG is False. EXTJS4_DEBUG is a setting introduced by the django_extjs4 app.'),
         make_option('--urlpattern',
             dest='urlpattern',
             default='http://localhost:8000/{appname}/',
@@ -199,6 +204,7 @@ class Command(BaseCommand):
         outdir = options['outdir']
         buildall = options['buildall']
         listall = options['listall']
+        check_settings = options['check_settings']
         setup_logging(get_verbosity(options))
         build_single = (url and outdir)
 
@@ -206,6 +212,8 @@ class Command(BaseCommand):
             self._listAllApps()
             return
         if build_single or buildall:
+            if check_settings and not getattr(settings, 'EXTJS4_DEBUG', False):
+                raise CommandError('settings.EXTJS4_DEBUG==False. Use --no-check-settings to ignore this check.')
             if options['collectstatic']:
                 log.info('Running "collectstatic"')
                 management.call_command('collectstatic', verbosity=1, interactive=False)
