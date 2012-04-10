@@ -12,7 +12,7 @@ except IOError:
 
 setup(name = 'djangosenchatools',
       description = 'Django management command to simplify building extjs and sencha touch apps with Sencha tools.',
-      version = '1.0',
+      version = '1.0.1',
       long_description=long_description,
       url = 'https://github.com/espenak/djangosenchatools',
       license = 'BSD',
