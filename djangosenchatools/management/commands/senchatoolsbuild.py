@@ -125,9 +125,15 @@ class SenchaToolsWrapper(object):
 
     def _cleanJsbAppAllSection(self, config):
         appall = config['builds'][1]
-        del appall['files'][1]
-        assert(len(appall['files']) == 1)
-        appall['files'][0]['path'] = self.unixstyle_outdir
+        #del appall['files'][1]
+        for file in appall['files']:
+            file['path'] = self.unixstyle_outdir
+
+        # Make sure the output files are correct (and that sencha/jsbuilder have not changed their format).
+        assert(appall['files'][0]['name'] == 'all-classes.js')
+        assert(appall['files'][1]['name'] == 'app.js')
+        assert(len(appall['files']) == 2)
+        assert(appall['target'] == 'app-all.js')
 
     def build(self, cleanedJsbConfig, nocompressjs=False):
         """
