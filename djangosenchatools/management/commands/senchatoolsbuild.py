@@ -15,37 +15,36 @@ from django.utils.importlib import import_module
 log = logging.getLogger('senchatoolsbuild')
 
 
-def get_installed_apps():
-    """
-    Get all installed apps except for those in the ``django`` package.
+def get_appinfo(app):
+    mod = import_module(app)
+    moddir = dirname(mod.__file__)
+    if exists(mod.__file__) and isdir(moddir):
+        appname = mod.__name__.split('.')[-1]
+        outdir = join(moddir, 'static', appname)
+        appdir = join(outdir, 'app')
+        if isdir(appdir):
+            log.debug('Found ExtJS app: %s', appname)
+            return (outdir, appname)
+        else:
+            log.debug('%s is not an ExtJS app (%s does not exist).', appname, appdir)
+    raise LookupError()
 
-    :return: List of installed apps as a list of ``(appdir, module, appname)``.
+def get_installed_extjs_apps():
+    """
+    Get all installed extjs apps.
+
+    :return: List of ``(appdir, module, appname)``.
     """
     installed_apps = []
     checked = set()
     for app in settings.INSTALLED_APPS:
         if not app.startswith('django.') and not app in checked:
-            mod = import_module(app)
             checked.add(app)
-            if exists(mod.__file__) and isdir(dirname(mod.__file__)):
-                appdir = dirname(mod.__file__)
-                installed_apps.append((appdir, mod, mod.__name__.split('.')[-1]))
+            try:
+                installed_apps.append(get_appinfo(app))
+            except LookupError, e:
+                pass
     return installed_apps
-
-def get_extjs_apps():
-    """
-    Get all extjs apps in INSTALLED_APPS. Any django app with a
-    ``<appdir>/static/<appname>/app`` directory is considered an ExtJS app.
-    """
-    apps = []
-    for moddir, mod, appname in get_installed_apps():
-        outdir = join(moddir, 'static', appname)
-        appdir = join(outdir, 'app')
-        if isdir(appdir):
-            apps.append((outdir, appname))
-            log.debug('Found ExtJS app: %s', appname)
-        log.debug('%s is not an ExtJS app (%s does not exist).', appname, appdir)
-    return apps
 
 def setup_logging(verbosity):
     if verbosity < 1:
@@ -167,6 +166,11 @@ class Command(BaseCommand):
         make_option('--outdir',
             dest='outdir',
             help="Filesystem path to the output directory."),
+        make_option('--app',
+            dest='app',
+            help=("App to build. An alternative to using --url and --outdir. "
+                  "Looks up information about a single just like --buildall does "
+                  "for all apps.")),
         make_option('--buildall',
             action='store_true',
             default=False,
@@ -204,6 +208,7 @@ class Command(BaseCommand):
         outdir = options['outdir']
         buildall = options['buildall']
         listall = options['listall']
+        app = options['app']
         check_settings = options['check_settings']
         setup_logging(get_verbosity(options))
         build_single = (url and outdir)
@@ -211,9 +216,12 @@ class Command(BaseCommand):
         if listall:
             self._listAllApps()
             return
-        if build_single or buildall:
+        if build_single or buildall or app:
             if check_settings and not getattr(settings, 'EXTJS4_DEBUG', False):
                 raise CommandError('settings.EXTJS4_DEBUG==False. Use --no-check-settings to ignore this check.')
+            else:
+                log.info('Skipping check for settings.EXTJS4_DEBUG.')
+
             if options['collectstatic']:
                 log.info('Running "collectstatic"')
                 management.call_command('collectstatic', verbosity=1, interactive=False)
@@ -222,6 +230,8 @@ class Command(BaseCommand):
 
             if buildall:
                 self._buildAllApps()
+            elif app:
+                self._buildAppByName(app)
             else:
                 outdir = abspath(outdir)
                 self._buildApp(outdir, url)
@@ -230,10 +240,24 @@ class Command(BaseCommand):
             raise CommandError('One of --listall, --buildall or --url and --outdir is required.')
 
 
+    def _getUrl(self, appname):
+        return self.urlpattern.format(appname=appname)
+
     def _iterAllApps(self):
-        for outdir, appname in get_extjs_apps():
-            url = self.urlpattern.format(appname=appname)
+        for outdir, appname in get_installed_extjs_apps():
+            url = self._getUrl(appname)
             yield outdir, appname, url
+
+    def _buildAppByName(self, app):
+        try:
+            outdir, appname = get_appinfo(app)
+        except LookupError:
+            raise CommandError('Could not find "{0}".'.format(app))
+        else:
+            url = self._getUrl(appname)
+            log.info('Building {appname} ({url}).'.format(**vars()))
+            self._buildApp(outdir, url)
+            log.info('Successfully built {appname} ({url}). Results are in: {outdir}'.format(**vars()))
 
     def _buildAllApps(self):
         for outdir, appname, url in self._iterAllApps():
