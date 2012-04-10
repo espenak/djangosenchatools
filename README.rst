@@ -8,6 +8,15 @@ workarounds to work when the HTML document and resources are not in the same
 directory. We have turned these workarounds into a Django management command
 available in the *djangosenchatools* app.
 
+
+Issues/contribute
+=================
+
+Report any issues at the `github project page <djangosenchatools>`_, and feel free
+to add your own guides/experiences to the wiki, and to contribute changes using
+pull requests.
+
+
 Install
 =======
 
@@ -86,3 +95,4 @@ can disable this check using ``--no-check-settings``.
 .. _`Sencha SDK Tools`: http://www.sencha.com/products/sdk-tools
 .. _`django_extjs4`: https://github.com/espenak/django_extjs4
 .. _`django_extjs4_examples`: https://github.com/espenak/django_extjs4_examples
+.. _`djangosenchatools`: https://github.com/espenak/djangosenchatools
