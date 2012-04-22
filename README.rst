@@ -2,7 +2,7 @@
 djangosenchatools
 #################
 
-Django_ management commands for the JSBuilder commands in `Sencha SDK Tools`_.
+Django management commands for the JSBuilder commands in `Sencha SDK Tools`_.
 Unfortunately, the JSBuilder commands provided by Sencha Tools needs some
 workarounds to work when the HTML document and resources are not in the same
 directory. We have turned these workarounds into a Django management command
@@ -93,8 +93,34 @@ is that ``senchatoolsbuild`` checks that ``settings.EXTJS4_DEBUG==True``. You
 can disable this check using ``--no-check-settings``.
 
 
-.. _Django: http://www.sencha.com/products/sdk-tools
+Building apps that require authentication
+=========================================
+
+Add the following to your ``settings.py``::
+
+    MIDDLEWARE_CLASSES += ['djangosenchatools.auth.SettingUserMiddleware']
+    AUTHENTICATION_BACKENDS = ('djangosenchatools.auth.SettingUserBackend',)
+    SENCHATOOLS_USER = 'myuser'
+
+Where ``SENCHATOOLS_USER`` is the user that you want to be authenticated as.
+**NEVER** use this backend/middleware in production.
+
+We reccommend that you create a separate settings.py for ``senchatoolsbuild``
+where you set the required settings. Here is our ``djangosenchatools_settings.py``::
+
+    from settings import *
+    EXTJS4_DEBUG = True
+    MIDDLEWARE_CLASSES += ['djangosenchatools.auth.SettingUserMiddleware']
+    AUTHENTICATION_BACKENDS = ('djangosenchatools.auth.SettingUserBackend',)
+    SENCHATOOLS_USER = 'grandma'
+
+We use this whenever we build apps using ``senchatoolsbuild``::
+
+    $ python manage.py senchatoolsbuild --settings djangosenchatools_settings --buildall
+
+
 .. _`Sencha SDK Tools`: http://www.sencha.com/products/sdk-tools
 .. _`django_extjs4`: https://github.com/espenak/django_extjs4
 .. _`django_extjs4_examples`: https://github.com/espenak/django_extjs4_examples
 .. _`djangosenchatools`: https://github.com/espenak/djangosenchatools
+
