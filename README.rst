@@ -39,7 +39,9 @@ Usage
 First, we need a Django ExtJS4 application. See `django_extjs4_examples`_ for
 an example application. We use the ``minimal_extjs4_app`` as our example.
 
-**warning:** The ``senchatoolsbuild`` management command runs ``collectstatic``.
+.. note:: The ``senchatoolsbuild`` management command runs ``collectstatic``.
+
+.. note:: You need to run the Django server (``manage.py runserver``) for all commands except --listall.
 
 
 Build one app
