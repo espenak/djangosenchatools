@@ -223,10 +223,12 @@ class Command(BaseCommand):
             self._listAllApps()
             return
         if build_single or buildall or app:
-            if check_settings and not getattr(settings, 'EXTJS4_DEBUG', False):
-                raise CommandError('settings.EXTJS4_DEBUG==False. Use --no-check-settings to ignore this check.')
+            if check_settings:
+                if not getattr(settings, 'EXTJS4_DEBUG', False):
+                    raise CommandError('settings.EXTJS4_DEBUG==False. Use --no-check-settings to ignore this check.')
             else:
                 log.info('Skipping check for settings.EXTJS4_DEBUG.')
+            return
 
             if options['collectstatic']:
                 log.info('Running "collectstatic"')
