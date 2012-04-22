@@ -102,8 +102,12 @@ Add the following to your ``settings.py``::
     AUTHENTICATION_BACKENDS = ('djangosenchatools.auth.SettingUserBackend',)
     SENCHATOOLS_USER = 'myuser'
 
-Where ``SENCHATOOLS_USER`` is the user that you want to be authenticated as.
-**NEVER** use this backend/middleware in production.
+Where ``SENCHATOOLS_USER`` is the user that you want to be authenticated as
+(the user must exist). **NEVER** use this backend/middleware in production.
+
+
+Reccommended setup
+------------------
 
 We reccommend that you create a separate settings.py for ``senchatoolsbuild``
 where you set the required settings. Here is our ``djangosenchatools_settings.py``::
@@ -114,9 +118,12 @@ where you set the required settings. Here is our ``djangosenchatools_settings.py
     AUTHENTICATION_BACKENDS = ('djangosenchatools.auth.SettingUserBackend',)
     SENCHATOOLS_USER = 'grandma'
 
-We use this whenever we build apps using ``senchatoolsbuild``::
+We use this settings module with ``runserver`` whenever we build apps using
+``senchatoolsbuild``::
 
-    $ python manage.py senchatoolsbuild --settings djangosenchatools_settings --buildall
+    $ python manage.py runserver --settings djangosenchatools_settings
+    and in another terminal:
+    $ python manage.py senchatoolsbuild --buildall
 
 
 .. _`Sencha SDK Tools`: http://www.sencha.com/products/sdk-tools
