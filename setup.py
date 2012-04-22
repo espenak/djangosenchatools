@@ -1,23 +1,15 @@
-from os.path import join, dirname
 from setuptools import setup, find_packages
+from djangosenchatools import version
 
-this_dir = dirname(__file__)
-
-try:
-    f = open(join(this_dir, 'README.rst'))
-    long_description = f.read().strip()
-    f.close()
-except IOError:
-    long_description = None
 
 setup(name = 'djangosenchatools',
       description = 'Django management command to simplify building extjs and sencha touch apps with Sencha tools.',
-      version = '1.0.1',
-      long_description=long_description,
+      version = version,
+      long_description=open('README.rst').read(),
       url = 'https://github.com/espenak/djangosenchatools',
       license = 'BSD',
       author = 'Espen Angell Kristiansen',
-      packages=find_packages(exclude=['ez_setup']),
+      packages=find_packages(exclude=['ez_setup', 'fabfile']),
       install_requires = ['setuptools', 'Django'],
       include_package_data=True,
       zip_safe=False,
