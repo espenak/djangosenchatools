@@ -194,7 +194,7 @@ class Command(BaseCommand):
             help=('Automatically find and build apps. Any django app with a '
                   '``<appdir>/static/<appname>/app`` directory is considered an ExtJS '
                   'app, and expected to be available at '
-                  '``http://localhost:8000/<appname>/``. The outdir for each app is '
+                  '``http://localhost:15041/<appname>/``. The outdir for each app is '
                   '``<appdir>/static/<appname>/``. Note: You can override the url with --urlpattern.')),
         make_option('--listall',
             action='store_true',
@@ -208,8 +208,8 @@ class Command(BaseCommand):
             help='Do not abort if settings.EXTJS4_DEBUG is False. EXTJS4_DEBUG is a setting introduced by the django_extjs4 app.'),
         make_option('--urlpattern',
             dest='urlpattern',
-            default='http://localhost:8000/{appname}/',
-            help="URL pattern used to create urls for apps when using --buildall or --app. Defaults to 'http://localhost:8000/{appname}/'."),
+            default='http://localhost:15041/{appname}/',
+            help="URL pattern used to create urls for apps when using --buildall or --app. Defaults to 'http://localhost:15041/{appname}/'."),
         make_option('--nocompress',
             action='store_true',
             dest='nocompressjs',
