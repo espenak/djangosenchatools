@@ -1,3 +1,4 @@
+from urlparse import urlparse
 import logging
 from os.path import join, dirname, isdir, relpath, abspath, sep, exists
 from os import remove
@@ -167,17 +168,20 @@ class Command(BaseCommand):
             dest='collectstatic',
             default=True,
             help='Do not run collectstatic before building.'),
-        make_option('--use-buildserver',
-            action='store_true',
+        make_option('--dont-use-buildserver',
+            action='store_false',
             dest='use_buildserver',
-            default=False,
-            help='Use a buildserver. This starts a Django server in a thread while building the app(s).'),
+            default=True,
+            help='We normally start a Django server in a thread while building the app(s). If you prefer to manually start your own server, use this option.'),
         make_option('--url',
             dest='url',
             help="The URL path to your application's HTML entry point. Same as the --app-entry parameter for 'sencha create jsb', except that we only support urls."),
         make_option('--outdir',
             dest='outdir',
             help="Filesystem path to the output directory."),
+        make_option('--watch',
+            dest='watchdir',
+            help="Filesystem path a directory that should be watched for changes. Changes trigger a re-run of this command with the same options."),
         make_option('--app',
             dest='app',
             help=("App to build. An alternative to using --url and --outdir. "
@@ -191,7 +195,7 @@ class Command(BaseCommand):
                   '``<appdir>/static/<appname>/app`` directory is considered an ExtJS '
                   'app, and expected to be available at '
                   '``http://localhost:8000/<appname>/``. The outdir for each app is '
-                  '``<appdir>/static/<appname>/``')),
+                  '``<appdir>/static/<appname>/``. Note: You can override the url with --urlpattern.')),
         make_option('--listall',
             action='store_true',
             default=False,
@@ -205,7 +209,7 @@ class Command(BaseCommand):
         make_option('--urlpattern',
             dest='urlpattern',
             default='http://localhost:8000/{appname}/',
-            help="URL pattern used to create urls for apps when using --buildall. Defaults to 'http://localhost:8000/{appname}/'."),
+            help="URL pattern used to create urls for apps when using --buildall or --app. Defaults to 'http://localhost:8000/{appname}/'."),
         make_option('--nocompress',
             action='store_true',
             dest='nocompressjs',
@@ -214,48 +218,65 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        setup_logging(get_verbosity(options))
         self.nocompressjs = options['nocompressjs']
         self.urlpattern = options['urlpattern']
         self.use_buildserver = options['use_buildserver']
-        url = options['url']
-        outdir = options['outdir']
-        buildall = options['buildall']
-        listall = options['listall']
-        app = options['app']
-        check_settings = options['check_settings']
-        setup_logging(get_verbosity(options))
-        build_single = (url and outdir)
+        self.check_settings = options['check_settings']
+        self.collectstatic = options['collectstatic']
+        self.app = options['app']
+        self.url = options['url']
+        self.outdir = options['outdir']
+        self.buildall = options['buildall']
+        self.watchdir = options['watchdir']
+        build_single = (self.url and self.outdir)
 
-        if listall:
+        if build_single:
+            self.hostname, self.port = self._parse_url(self.url)
+        else:
+            self.hostname, self.port = self._parse_url(self.urlpattern)
+
+        if options['listall']:
             self._listAllApps()
             return
-        if build_single or buildall or app:
-            if check_settings:
-                if not getattr(settings, 'EXTJS4_DEBUG', False):
-                    raise CommandError('settings.EXTJS4_DEBUG==False. Use --no-check-settings to ignore this check.')
+        if build_single or self.buildall or self.app:
+            if self.watchdir:
+                self._watch()
             else:
-                log.info('Skipping check for settings.EXTJS4_DEBUG.')
-
-            if options['collectstatic']:
-                log.info('Running "collectstatic"')
-                management.call_command('collectstatic', verbosity=1, interactive=False)
-            else:
-                log.info('Skipping "collectstatic"')
-
-            if buildall:
-                self._buildAllApps()
-            elif app:
-                self._buildAppByName(app)
-            else:
-                outdir = abspath(outdir)
-                self._buildApp(outdir, url)
-                log.info('Successfully built {url}. Results are in: {outdir}'.format(**vars()))
+                self._run()
         else:
             raise CommandError('One of --listall, --buildall or --url and --outdir is required.')
 
 
+    def _run(self):
+        if self.check_settings:
+            if not getattr(settings, 'EXTJS4_DEBUG', False):
+                raise CommandError('settings.EXTJS4_DEBUG==False. Use --no-check-settings to ignore this check.')
+        else:
+            log.info('Skipping check for settings.EXTJS4_DEBUG.')
+
+        if self.collectstatic:
+            log.info('Running "collectstatic"')
+            management.call_command('collectstatic', verbosity=1, interactive=False)
+        else:
+            log.info('Skipping "collectstatic"')
+
+        if self.buildall:
+            self._buildAllApps()
+        elif self.app:
+            self._buildAppByName(self.app)
+        else:
+            outdir = abspath(self.outdir)
+            self._buildApp(outdir, self.url)
+            log.info('Successfully built {url}. Results are in: {outdir}'.format(url=self.url,
+                                                                                 outdir=outdir))
+
     def _getUrl(self, appname):
         return self.urlpattern.format(appname=appname)
+
+    def _parse_url(self, url):
+        o = urlparse(url)
+        return o.hostname, o.port
 
     def _iterAllApps(self):
         for outdir, appname in get_installed_extjs_apps():
@@ -290,6 +311,23 @@ class Command(BaseCommand):
         def builder():
             SenchaToolsWrapper(outdir, url).configureAndBuild(self.nocompressjs)
         if self.use_buildserver:
-            build_with_buildserver(builder)
+            build_with_buildserver(self.hostname, self.port, builder)
         else:
             builder()
+
+    def _watch(self):
+        from djangosenchatools.watch import DjangoFileSystemEventHandler
+        from watchdog.observers import Observer
+        import time
+
+        log.info('Listening for file events in: %s', self.watchdir)
+        event_handler = DjangoFileSystemEventHandler(self._run)
+        observer = Observer()
+        observer.schedule(event_handler, self.watchdir, recursive=True)
+        observer.start()
+        try:
+            while True:
+                time.sleep(0.3)
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()

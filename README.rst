@@ -22,7 +22,7 @@ Install
 
 Install the python package::
 
-    pip install djangosenchatools
+    $ pip install djangosenchatools
 
 
 Add it to your django project::
@@ -47,10 +47,9 @@ an example application. We use the ``minimal_extjs4_app`` as our example.
 Build one app
 -------------
 
-1. Start the Django server (``python manage.py runserver``).
-2. Run::
+Run::
 
-    python manage.py senchatoolsbuild --url http://localhost:8000/minimal_extjs4_app/ --outdir /path/to/outdir
+    $ python manage.py senchatoolsbuild --url http://localhost:8000/minimal_extjs4_app/ --outdir /path/to/outdir
 
 With ``--url`` and ``--outdir``, the senchatoolsbuild command runs ``sencha
 create jsb`` and ``sencha build``, and puts the result in the ``--outdir``.
@@ -66,13 +65,13 @@ respective static directories. Run with ``--help`` and see the help for
 
 To list detected apps, their ``--outdir`` and ``--url``, run::
 
-    python manage.py senchatoolsbuild --listall
+    $ python manage.py senchatoolsbuild --listall
 
 Add ``-v3`` to see skipped apps, and why they are skipped.
 
 To build all detected apps, run::
 
-    python manage.py senchatoolsbuild --buildall
+    $ python manage.py senchatoolsbuild --buildall
 
 
 Build one app by name
@@ -81,7 +80,29 @@ Build one app by name
 You can build a single app in ``INSTALLED_APPS`` using the same method of
 detecting outdir and url as ``--buildall`` using ``--app``::
 
-    python manage.py senchatoolsbuild --app minimal_extjs4_app
+    $ python manage.py senchatoolsbuild --app minimal_extjs4_app
+
+
+Using --watch
+-------------
+
+Use ``--watch`` to automatically rebuild on file changes:
+
+    $ python manage.py senchatoolsbuild --app minimal_extjs4_app --watch /path/to/directory/containing/minimal_extjs4_app
+
+Use ``-v2`` for debug out. By default, only ``*.js``-files trigger rebuild
+events, however you can change this using these settings (shown with their defaults):
+
+    #: Files to include
+    DJANGOSENCHATOOLS_WATCH_INCLUDE = ['*.js']
+    
+    #: Files to exclude
+    #: - Matched after INCLUDE, so you can include a general pattern, and
+    #:   exclude specific files or dirs.
+    DJANGOSENCHATOOLS_WATCH_EXCLUDE = ['*.*.swp', '*~', '*.pyc', '*.pyo',
+                                       '*app-all.js', '*all-classes.js']
+
+_Note_: All patterns match against the absolute path of the file.
 
 
 Integration with django_extjs4
@@ -118,12 +139,9 @@ where you set the required settings. Here is our ``djangosenchatools_settings.py
     AUTHENTICATION_BACKENDS = ('djangosenchatools.auth.SettingUserBackend',)
     SENCHATOOLS_USER = 'grandma'
 
-We use this settings module with ``runserver`` whenever we build apps using
-``senchatoolsbuild``::
+We use this settings module whenever we build apps using ``senchatoolsbuild``::
 
-    $ python manage.py runserver --settings djangosenchatools_settings
-    and in another terminal:
-    $ python manage.py senchatoolsbuild --buildall
+    $ python manage.py senchatoolsbuild --buildall --settings djangosenchatools_settings
 
 
 .. _`Sencha SDK Tools`: http://www.sencha.com/products/sdk-tools
