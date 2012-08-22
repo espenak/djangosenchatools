@@ -11,6 +11,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.core import management
 from django.conf import settings
 from django.utils.importlib import import_module
+from djangosenchatools.buildserver import build_with_buildserver
 
 log = logging.getLogger('senchatoolsbuild')
 
@@ -166,6 +167,11 @@ class Command(BaseCommand):
             dest='collectstatic',
             default=True,
             help='Do not run collectstatic before building.'),
+        make_option('--use-buildserver',
+            action='store_true',
+            dest='use_buildserver',
+            default=False,
+            help='Use a buildserver. This starts a Django server in a thread while building the app(s).'),
         make_option('--url',
             dest='url',
             help="The URL path to your application's HTML entry point. Same as the --app-entry parameter for 'sencha create jsb', except that we only support urls."),
@@ -210,6 +216,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.nocompressjs = options['nocompressjs']
         self.urlpattern = options['urlpattern']
+        self.use_buildserver = options['use_buildserver']
         url = options['url']
         outdir = options['outdir']
         buildall = options['buildall']
@@ -280,4 +287,9 @@ class Command(BaseCommand):
             print '    url:', url
 
     def _buildApp(self, outdir, url):
-        SenchaToolsWrapper(outdir, url).configureAndBuild(self.nocompressjs)
+        def builder():
+            SenchaToolsWrapper(outdir, url).configureAndBuild(self.nocompressjs)
+        if self.use_buildserver:
+            build_with_buildserver(builder)
+        else:
+            builder()
