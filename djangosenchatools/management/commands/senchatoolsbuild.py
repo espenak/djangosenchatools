@@ -69,6 +69,7 @@ class SenchaToolsWrapper(object):
         """
         self.url = url
         self.outdir = outdir
+        self.configpath = join(outdir, 'app.jsb3')
         self.unixstyle_outdir = relpath(outdir).replace(sep, '/') + '/' # Make sure we have a unix-style path with trailing /
         self.static_root = relpath(settings.STATIC_ROOT)
 
@@ -107,6 +108,14 @@ class SenchaToolsWrapper(object):
         log.debug('cleaned JSB config: %s', jsb)
         return jsb
 
+    def createAndWriteCleanJsbConfig(self):
+        jsb = self.createCleanJsbConfig()
+        open(self.configpath, 'wb').write(jsb)
+        return jsb
+
+    def readJsbConfig(self):
+        return open(self.configpath, 'rb').read()
+
     def _cleanJsbAllClassesSection(self, config):
         """
         Fixes two issues with the sencha created JSB:
@@ -137,27 +146,30 @@ class SenchaToolsWrapper(object):
         assert(len(appall['files']) == 2)
         assert(appall['target'] == 'app-all.js')
 
-    def build(self, cleanedJsbConfig, nocompressjs=False):
+    def buildFromJsbString(self, jsb, nocompressjs=False):
         """
-        Build JSB from the given config file (a string) using ``sencha build``.
+        Build from the given config file using ``sencha build``.
 
+        :param jsb: The JSB config as a string.
         :param nocompressjs: Compress the javascript? If ``True``, run ``sencha build --nocompress``.
         """
         tempconffile = 'temp-app.jsb3'
-        open(tempconffile, 'w').write(cleanedJsbConfig)
         cmd = ['sencha', 'build', '-p', tempconffile, '-d', self.outdir]
         if nocompressjs:
             cmd.append('--nocompress')
-        log.debug('Running: %s', ' '.join(cmd))
-        call(cmd)
-        remove(tempconffile)
+        open(tempconffile, 'w').write(jsb)
+        log.info('Running: %s', ' '.join(cmd))
+        try:
+            call(cmd)
+        finally:
+            remove(tempconffile)
 
     def configureAndBuild(self, nocompressjs=False):
         """
         Run :meth:`createCleanJsbConfig` and :meth:`build`.
         """
         jsb = self.createCleanJsbConfig()
-        self.build(jsb, nocompressjs)
+        self.buildFromJsbString(jsb, nocompressjs)
 
 
 class Command(BaseCommand):
@@ -215,6 +227,11 @@ class Command(BaseCommand):
             dest='nocompressjs',
             default=False,
             help='Forwarded to "sencha build". See "sencha help build".'),
+        make_option('--no-jsbcreate',
+            action='store_false',
+            dest='create_jsb',
+            default=True,
+            help='Do not run "sencha create" to create/update the JSB-file.')
         )
 
     def handle(self, *args, **options):
@@ -229,6 +246,7 @@ class Command(BaseCommand):
         self.outdir = options['outdir']
         self.buildall = options['buildall']
         self.watchdir = options['watchdir']
+        self.create_jsb = options['create_jsb']
         build_single = (self.url and self.outdir)
 
         if build_single:
@@ -308,12 +326,18 @@ class Command(BaseCommand):
             print '    url:', url
 
     def _buildApp(self, outdir, url):
-        def builder():
-            SenchaToolsWrapper(outdir, url).configureAndBuild(self.nocompressjs)
-        if self.use_buildserver:
-            build_with_buildserver(self.hostname, self.port, builder)
-        else:
-            builder()
+        sencha = SenchaToolsWrapper(outdir, url)
+        if self.create_jsb:
+            def builder():
+                jsb = sencha.createAndWriteCleanJsbConfig()
+            if self.use_buildserver:
+                build_with_buildserver(self.hostname, self.port, builder)
+            else:
+                builder()
+        jsb = sencha.readJsbConfig()
+        log.info('Building app-all.js from %s (copied to temp-app.jsb3)', sencha.configpath)
+        sencha.buildFromJsbString(jsb=jsb,
+                                  nocompressjs=self.nocompressjs)
 
     def _watch(self):
         from djangosenchatools.watch import DjangoFileSystemEventHandler
