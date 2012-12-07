@@ -5,7 +5,7 @@ from djangosenchatools import version
 @task
 def versiontag():
     """
-    Add git tag for current ``extjs.version``.
+    Add git tag for current ``djangosenchatools.version``.
     """
     local('git tag {0}'.format(version))
 
